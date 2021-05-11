@@ -1,0 +1,23 @@
+/*
+ * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
+enclave {
+    from "sgx_tstdc.edl" import *;
+
+    trusted {
+        /* define ECALLs here. */
+        public uint32_t ecall_gp_open_session(uint32_t param_types,
+                                              [user_check]void *param,
+                                              [user_check]void  **session);
+
+        public uint32_t ecall_gp_invoke([user_check]void *session,
+                                        uint32_t cmd_id, uint32_t param_types,
+                                        [user_check]void *param);
+
+        public void ecall_gp_close_session([user_check]void  *session);
+
+    };
+
+};
