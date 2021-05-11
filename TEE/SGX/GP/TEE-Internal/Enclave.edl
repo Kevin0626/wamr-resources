@@ -10,13 +10,13 @@ enclave {
         /* define ECALLs here. */
         public uint32_t ecall_gp_open_session(uint32_t param_types,
                                               [user_check]void *param,
-                                              [user_check]void  **session);
+                                              [user_check]uint32_t  *session_id);
 
-        public uint32_t ecall_gp_invoke([user_check]void *session,
+        public uint32_t ecall_gp_invoke([user_check]uint32_t session_id,
                                         uint32_t cmd_id, uint32_t param_types,
                                         [user_check]void *param);
 
-        public void ecall_gp_close_session([user_check]void  *session);
+        public void ecall_gp_close_session([user_check]uint32_t  session_id);
 
     };
 

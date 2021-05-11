@@ -147,13 +147,14 @@ void Enclave_Destory()
 
 TEEC_Result TEEC_InitializeContext(const char *name, TEEC_Context *context)
 {
+    memset(context, 0, sizeof(*context));
 	return TEEC_SUCCESS;
 }
 
 
 void TEEC_FinalizeContext(TEEC_Context *context)
 {
-
+    memset(context, 0, sizeof(*context));
 }
 
 
@@ -167,9 +168,11 @@ TEEC_Result TEEC_OpenSession(TEEC_Context *context,
 {
 	TEEC_Result ret;
     if (ecall_gp_open_session(g_eid, &ret, operation->paramTypes,
-	                          operation->params, (void **)session) != SGX_SUCCESS) {
+	                          operation->params, &session->session_id) != SGX_SUCCESS) {
 		return -1;
 	}
+
+    session->ctx = context;
 
 	return ret;
 }
@@ -177,7 +180,8 @@ TEEC_Result TEEC_OpenSession(TEEC_Context *context,
 
 void TEEC_CloseSession(TEEC_Session *session)
 {
-	ecall_gp_close_session(g_eid, session);
+	ecall_gp_close_session(g_eid, session->session_id);
+    memset(session,0, sizeof(*session));
 }
 
 
@@ -188,7 +192,7 @@ TEEC_Result TEEC_InvokeCommand(TEEC_Session *session,
 {
 	TEEC_Result ret;
 
-    if(ecall_gp_invoke(g_eid, &ret, session, commandID,
+    if(ecall_gp_invoke(g_eid, &ret, session->session_id, commandID,
 					          operation->paramTypes, operation->params) != SGX_SUCCESS) {
 		return -1;
 	}
