@@ -60,8 +60,18 @@ int main(void)
 	 * Open a session to the "hello world" TA, the TA will print "hello
 	 * world!" in the log when the session is created.
 	 */
+
+	/*
+	 * Prepare the argument. Pass a value in the first parameter,
+	 * the remaining three parameters are unused.
+	 */
+	memset(&op, 0, sizeof(op));
+
+	op.paramTypes = TEEC_PARAM_TYPES(TEEC_NONE, TEEC_NONE,
+					 TEEC_NONE, TEEC_NONE);
+
 	res = TEEC_OpenSession(&ctx, &sess, &uuid,
-			       TEEC_LOGIN_PUBLIC, NULL, NULL, &err_origin);
+			       TEEC_LOGIN_PUBLIC, NULL, &op, &err_origin);
 	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_Opensession failed with code 0x%x origin 0x%x",
 			res, err_origin);
@@ -96,6 +106,19 @@ int main(void)
 		errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
 			res, err_origin);
 	printf("TA incremented value to %d\n", op.params[0].value.a);
+ 	printf("------------------------------ \n");
+
+	/*
+	 * TA_HELLO_WORLD_CMD_DEC_VALUE is the actual function in the TA to be
+	 * called.
+	 */
+	printf("Invoking TA to decrement %d\n", op.params[0].value.a);
+	res = TEEC_InvokeCommand(&sess, TA_HELLO_WORLD_CMD_DEC_VALUE, &op,
+				 &err_origin);
+	if (res != TEEC_SUCCESS)
+		errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
+			res, err_origin);
+	printf("TA decremented value to %d\n", op.params[0].value.a);
 
 	/*
 	 * We're done with the TA, close the session and

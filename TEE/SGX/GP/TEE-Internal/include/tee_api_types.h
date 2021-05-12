@@ -7,7 +7,7 @@
 #ifndef TEE_API_TYPES_H
 #define TEE_API_TYPES_H
 
-#include <compiler.h>
+// #include <compiler.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -168,7 +168,8 @@ typedef uint32_t TEE_BigInt;
 
 typedef uint32_t TEE_BigIntFMM;
 
-typedef uint32_t TEE_BigIntFMMContext __aligned(__alignof__(void *));
+// typedef uint32_t TEE_BigIntFMMContext __aligned(__alignof__(void *));
+typedef uint32_t TEE_BigIntFMMContext;
 
 /* Tee Secure Element APIs */
 

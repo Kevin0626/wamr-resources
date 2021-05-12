@@ -1,7 +1,7 @@
 #include "tee_client_api.h"
 #include <unistd.h>
 #include <pwd.h>
-#include "../samples/hello_world/host/Enclave_u.h"
+#include "Enclave_u.h"
 #include "sgx_urts.h"
 #include "sgx_error.h"
 #include <cstdio>
@@ -19,6 +19,18 @@
 #define MAX_PATH 1024
 
 static sgx_enclave_id_t g_eid = 0;
+
+void
+ocall_print(const char* str)
+{
+    printf("%s", str);
+}
+
+void
+ocall_print_int(uint32_t val)
+{
+    printf("%d", val);
+}
 
 static char *
 get_exe_path(char *path_buf, unsigned path_buf_size)
@@ -181,7 +193,7 @@ TEEC_Result TEEC_OpenSession(TEEC_Context *context,
 void TEEC_CloseSession(TEEC_Session *session)
 {
 	ecall_gp_close_session(g_eid, session->session_id);
-    memset(session,0, sizeof(*session));
+    memset(session, 0, sizeof(*session));
 }
 
 

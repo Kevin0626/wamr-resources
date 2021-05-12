@@ -8,10 +8,10 @@
 #define TEE_API_H
 
 #include <stddef.h>
-#include <compiler.h>
+// #include <compiler.h>
 #include <tee_api_defines.h>
 #include <tee_api_types.h>
-#include <trace.h>
+// #include <trace.h>
 
 /* Property access functions */
 

@@ -6,7 +6,7 @@
 SGX_SDK ?= /opt/intel/sgxsdk
 SGX_MODE ?= SIM
 SGX_ARCH ?= x64
-SGX_DEBUG ?= 0
+SGX_DEBUG ?= 1
 SPEC_TEST ?= 0
 
 ifeq ($(shell getconf LONG_BIT), 32)
@@ -48,9 +48,9 @@ else
 endif
 
 App_Cpp_Files := samples/hello_world/host/main.c TEEC/TEEC.c 
-App_Include_Paths := -ITEEC -Isamples/hello_world/ta/include -I$(SGX_SDK)/include
+App_Include_Paths := -I$(CURDIR)/TEEC -I$(CURDIR)/samples/hello_world/ta/include -I$(CURDIR)/samples/hello_world/host -I$(SGX_SDK)/include
 
-App_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Include_Paths)
+App_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Include_Paths) -g
 
 # Three configuration modes - Debug, prerelease, release
 #   Debug - Macro DEBUG enabled.
@@ -90,13 +90,15 @@ Crypto_Library_Name := sgx_tcrypto
 
 Enclave_Cpp_Files := TEE-Internal/enclave_gp.c samples/hello_world/ta/hello_world_ta.c
 
-Enclave_Include_Paths := -ITEE-Internal/include \
-                         -ITsamples/hello_world/ta/include \
+Enclave_Include_Paths := -I$(CURDIR)/TEE-Internal/include \
+						 -I$(CURDIR)/TEE-Internal \
+                         -I$(CURDIR)/samples/hello_world/ta/include \
                          -I$(SGX_SDK)/include \
                          -I$(SGX_SDK)/include/tlibc \
                          -I$(SGX_SDK)/include/stlport
 
-Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths)
+Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -g
+
 ifeq ($(SPEC_TEST), 1)
 	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=1
 else
@@ -105,7 +107,6 @@ endif
 Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++03 -nostdinc++
 Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
-    libvmlib.a \
 	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -lsgx_pthread -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
@@ -115,7 +116,7 @@ Enclave_Cpp_Objects := $(Enclave_Cpp_Files:.c=.o)
 
 Enclave_Name := enclave.so
 Signed_Enclave_Name := enclave.signed.so
-Enclave_Config_File := Enclave/Enclave.config.xml
+Enclave_Config_File := TEE-Internal/Enclave.config.xml
 
 ifeq ($(SGX_MODE), HW)
 ifneq ($(SGX_DEBUG), 1)
@@ -177,8 +178,7 @@ $(App_Name): samples/hello_world/host/Enclave_u.o $(App_Cpp_Objects)
 TEE-Internal/Enclave_t.c: $(SGX_EDGER8R) TEE-Internal/Enclave.edl
 	@cd TEE-Internal && $(SGX_EDGER8R) --trusted ../TEE-Internal/Enclave.edl \
 		--search-path ../TEE-Internal \
-		--search-path $(SGX_SDK)/include \
-		--search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
+		--search-path $(SGX_SDK)/include
 	@echo "GEN  =>  $@"
 
 TEE-Internal/Enclave_t.o: TEE-Internal/Enclave_t.c
@@ -189,15 +189,19 @@ TEE-Internal/%.o: TEE-Internal/%.c
 	@$(CXX) $(Enclave_Cpp_Flags) -c $< -o $@
 	@echo "CXX  <=  $<"
 
+samples/hello_world/ta/%.o: samples/hello_world/ta/%.c
+	@$(CXX) $(Enclave_Cpp_Flags) -c $< -o $@
+	@echo "CXX  <=  $<"
+
 $(Enclave_Name): TEE-Internal/Enclave_t.o $(Enclave_Cpp_Objects)
 	@$(CXX) $^ -o $@ $(Enclave_Link_Flags)
 	@echo "LINK =>  $@"
 
 $(Signed_Enclave_Name): $(Enclave_Name)
-	@$(SGX_ENCLAVE_SIGNER) sign -key Enclave/Enclave_private.pem -enclave $(Enclave_Name) -out $@ -config $(Enclave_Config_File)
+	@$(SGX_ENCLAVE_SIGNER) sign -key TEE-Internal/Enclave_private.pem -enclave $(Enclave_Name) -out $@ -config $(Enclave_Config_File)
 	@echo "SIGN =>  $@"
 
 .PHONY: clean
 
 clean:
-	@rm -f $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.* libvmlib.a libvmlib_untrusted.a
+	@rm -f $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) samples/hello_world/host/Enclave_u.* $(Enclave_Cpp_Objects) TEE-Internal/Enclave_t.*
