@@ -39,6 +39,20 @@ gp_tee_session_t * allocate_session()
     return NULL;
 }
 
+int get_session_num()
+{
+    int cnt = 0;
+    for(int i=0; i< MAX_SESSIONS; i++)
+    {
+        if(g_tee_sessions[i].used)
+        {
+            cnt ++;;
+        }
+    }
+
+    return cnt;
+}
+
 gp_tee_session_t * lookup_session(uint32_t session_id)
 {
     for(int i=0; i< MAX_SESSIONS; i++)
@@ -64,16 +78,34 @@ void free_session(gp_tee_session_t * session)
     }
 }
 
+static bool create_entry_called = false;
+
+
 TEE_Result ecall_gp_open_session(uint32_t param_types,
                                  void *params,
                                  uint32_t *session_id)
 {
-
+    TEE_Result ret;
     gp_tee_session_t * session = allocate_session();
     if(session == NULL)
         return TEE_ERROR_MAX_SESSION;
 
-    TEE_Result ret = TA_OpenSessionEntryPoint(param_types, (TEE_Param *)params, &session->user_data);
+    if(!create_entry_called)
+    {
+        ret = TA_CreateEntryPoint();
+        if(ret != TEE_SUCCESS)
+        {
+            free_session(session);
+            *session_id = INVALID_GP_SESSION_ID;
+            ocall_print("TA_CreateEntryPoint returned fail.\n");
+            return ret;
+        }
+        ocall_print("TA_CreateEntryPoint executed.\n");
+        create_entry_called = true;
+    }
+
+
+    ret = TA_OpenSessionEntryPoint(param_types, (TEE_Param *)params, &session->user_data);
 
     if(ret != TEE_SUCCESS)
     {
@@ -108,6 +140,13 @@ void ecall_gp_close_session(uint32_t session_id)
     if(lookup_session(session_id) == NULL)
     {
         ocall_print("Session has been free!\n");
+    }
+
+    if(get_session_num() == 0 && create_entry_called)
+    {
+        TA_DestroyEntryPoint();
+        create_entry_called = false;
+        ocall_print("TA_DestroyEntryPoint executed.\n");
     }
 
     ocall_print("\n====================================\n\n");
