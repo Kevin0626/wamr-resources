@@ -32,6 +32,11 @@
 
 static sgx_enclave_id_t g_eid = 0;
 
+sgx_enclave_id_t TEECX_Get_eid()
+{
+    return g_eid;
+}
+
 void
 ocall_print(const char* str)
 {

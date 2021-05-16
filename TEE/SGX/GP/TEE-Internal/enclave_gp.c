@@ -1,6 +1,6 @@
 
 #include <tee_internal_api.h>
-#include "Enclave_t.h"
+#include "cup_sgx_enclave_t.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
