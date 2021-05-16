@@ -5,6 +5,14 @@
 #include "sgx_urts.h"
 #include "sgx_error.h"
 #include <cstdio>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <string.h>
 
 #ifndef TRUE
 #define TRUE 1
@@ -315,4 +323,90 @@ TEEC_Result TEEC_InvokeCommand(TEEC_Session *session,
         return -1;
     }
 	return ret;
+}
+
+
+
+static int load_file_to_memory(const char *filename, char **result)
+{
+    size_t size = 0;
+    FILE *f = fopen(filename, "rb");
+    if (f == NULL)
+    {
+        printf("load_file_to_memory: open fail. error: %d, file: %s", errno, filename);
+        *result = NULL;
+        return -1; // -1 means file opening fail
+    }
+    fseek(f, 0, SEEK_END);
+    size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    *result = (char *)malloc(size+1);
+    if (size != fread(*result, sizeof(char), size, f))
+    {
+        printf("load_file_to_memory: read fail. error: %d, file: %s", errno, filename);
+        free(*result);
+        return -2; // -2 means file reading fail
+    }
+    fclose(f);
+    (*result)[size] = 0;
+    return (int)size;
+}
+
+
+
+#define INSTALL_TA 101
+#define TA_CUP_BTA_UUID \
+	{ 0x8aaaf200, 0x2450, 0x11e4, \
+		{ 0xab, 0xe2, 0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b} }
+
+TEEC_Result TEECX_Open_wasmTA_session(TEEC_Context * ctx,
+	TEEC_Session *sess ,
+    const char * sp, const char * ta_name, const char * wasmTA_path)
+{
+	TEEC_Result res;
+	TEEC_Operation op;
+	TEEC_UUID uuid = TA_CUP_BTA_UUID;
+	uint32_t err_origin;
+    char * content = NULL;
+
+    int len = 0;
+    if(wasmTA_path)
+    {
+        len= load_file_to_memory(wasmTA_path, &content);
+        if(len <= 0)
+        {
+            printf("%s: load wasm binary [%s] fail. err: %d\n", 
+                __FUNCTION__, wasmTA_path, errno);
+            return -1;
+        }
+    }
+    else
+    {
+            printf("%s: no wasm TA path given, hope it is alredy in the SGX enclave\n", 
+                __FUNCTION__);
+    }
+
+	/*
+	 * Prepare the argument. Pass a value in the first parameter,
+	 * the remaining three parameters are unused.
+	 */
+	memset(&op, 0, sizeof(op));
+    op.params[0].value.a = INSTALL_TA;
+    op.params[1].tmpref.buffer = (void*)ta_name;
+    op.params[1].tmpref.size = strlen(ta_name) + 1;
+    op.params[2].tmpref.buffer = (void*)sp;
+    op.params[2].tmpref.size = strlen(sp) + 1;
+    op.params[3].tmpref.buffer = (void*)content;
+    op.params[3].tmpref.size = len;
+
+	op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INOUT, TEEC_MEMREF_TEMP_INPUT,
+					 TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_INPUT);
+
+	res = TEEC_OpenSession(ctx, sess, &uuid,
+			       TEEC_LOGIN_PUBLIC, NULL, &op, &err_origin);
+	if (res != TEEC_SUCCESS)
+		printf("TEEC_Opensession failed with code 0x%x origin 0x%x",
+			res, err_origin);
+
+    return res;
 }

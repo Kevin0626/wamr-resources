@@ -548,6 +548,26 @@ void TEEC_ReleaseSharedMemory(TEEC_SharedMemory *sharedMemory);
 void TEEC_RequestCancellation(TEEC_Operation *operation);
 
 
+
+/**
+ * 
+ * TEECX_Open_wasmTA_session() - Request open a WasmTA session
+ *                              session or command invocation.
+ *
+ * @param context    The initialized TEE context structure in which scope to
+ *                   open the session.
+ * @param session    A handle to an open connection to the trusted
+ *                   application.
+ * @param sp         Service provider name for the WasmTA
+ * @param ta_name    The name of the WasmTA
+ * @param wasmTA_path    The file path of the WasmTA. It can be NULL if the TA was already installed  into SGX
+ * 
+ * */
+TEEC_Result TEECX_Open_wasmTA_session(TEEC_Context * ctx,
+	TEEC_Session *sess ,
+    const char * sp, const char * ta_name, const char * wasmTA_path);
+
+
 #ifdef __cplusplus
 }
 #endif
