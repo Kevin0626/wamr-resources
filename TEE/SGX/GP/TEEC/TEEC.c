@@ -1,7 +1,6 @@
 #include "tee_client_api.h"
 #include <unistd.h>
 #include <pwd.h>
-#include "Enclave_u.h"
 #include "sgx_urts.h"
 #include "sgx_error.h"
 #include <cstdio>
@@ -13,6 +12,11 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
+#if !defined(SGX_GP_ENCLAVE_HEADER)
+#include "cup_sgx_enclave_u.h"
+#else
+#include SGX_GP_ENCLAVE_HEADER
+#endif
 
 #ifndef TRUE
 #define TRUE 1
@@ -270,15 +274,17 @@ TEEC_Result TEEC_OpenSession(TEEC_Context *context,
 			     uint32_t *returnOrigin)
 {
 	TEEC_Result ret;
+    int sgx_status;
     SGX_TEE_Param sgx_params[TEEC_CONFIG_PAYLOAD_REF_COUNT] = {0};
     if(!ToSGX_TEE_Param(operation, sgx_params))
     {
         printf("TEEC_OpenSession: unsupported in paramers type\n");
         return -1;
     }
-
-    if (ecall_gp_open_session(g_eid, &ret, operation->paramTypes,
-	                          sgx_params, &session->session_id) != SGX_SUCCESS) {
+    sgx_status = ecall_gp_open_session(g_eid, &ret, operation->paramTypes,
+	                          sgx_params, &session->session_id);
+    if (sgx_status != SGX_SUCCESS) {
+        printf("TEEC_OpenSession: ecall_gp_open_session return %d\n", sgx_status);
 		return -1;
 	}
 
