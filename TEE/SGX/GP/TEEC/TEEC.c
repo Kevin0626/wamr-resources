@@ -314,7 +314,7 @@ TEEC_Result TEEC_InvokeCommand(TEEC_Session *session,
     }
 
     if(ecall_gp_invoke(g_eid, &ret, session->session_id, commandID,
-					          operation->paramTypes, operation->params) != SGX_SUCCESS) {
+					          operation->paramTypes, sgx_params) != SGX_SUCCESS) {
 		return -1;
 	}
     if(!FromSGX_TEE_Param(operation, sgx_params))
