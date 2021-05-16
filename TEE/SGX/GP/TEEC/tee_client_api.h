@@ -547,12 +547,6 @@ void TEEC_ReleaseSharedMemory(TEEC_SharedMemory *sharedMemory);
  */
 void TEEC_RequestCancellation(TEEC_Operation *operation);
 
-/***
- * SGX
- *
- */
-int Enclave_Initialize();
-void Enclave_Destory();
 
 #ifdef __cplusplus
 }

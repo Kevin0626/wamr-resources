@@ -160,15 +160,98 @@ void Enclave_Destory()
 TEEC_Result TEEC_InitializeContext(const char *name, TEEC_Context *context)
 {
     memset(context, 0, sizeof(*context));
+
+	/* Initialize the enclave */
+	if (Enclave_Initialize() < 0) {
+		printf("Fail to initialize enclave.");
+        return -1;
+    }
+
+    context->fd = g_eid;
+
 	return TEEC_SUCCESS;
 }
 
 
 void TEEC_FinalizeContext(TEEC_Context *context)
 {
+    Enclave_Destory();
     memset(context, 0, sizeof(*context));
 }
 
+typedef union {
+	struct {
+		void *buffer;
+		uint32_t size;
+	} memref;
+	struct {
+		uint32_t a;
+		uint32_t b;
+	} value;
+} SGX_TEE_Param;
+
+bool ToSGX_TEE_Param(TEEC_Operation *operation, SGX_TEE_Param * p)
+{
+    for(int i=0;i<TEEC_CONFIG_PAYLOAD_REF_COUNT;i++)
+    {
+        uint8_t t = TEEC_PARAM_TYPE_GET(operation->paramTypes, i);
+        switch (t)
+        {
+        case TEEC_NONE:
+            /* code */
+            break;
+        case TEEC_VALUE_INPUT:
+        case TEEC_VALUE_INOUT:
+        case TEEC_VALUE_OUTPUT:
+            p[i].value.a = operation->params[i].value.a;
+            p[i].value.b = operation->params[i].value.b;
+            break;
+        case TEEC_MEMREF_TEMP_INPUT:
+        case TEEC_MEMREF_TEMP_INOUT:
+        case TEEC_MEMREF_TEMP_OUTPUT: 
+            p[i].memref.buffer = operation->params[i].tmpref.buffer;
+            p[i].memref.size = operation->params[i].tmpref.size;
+            break;
+        default:
+            printf ("%s: TEE para type %d not supported\n", __FUNCTION__, t);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool FromSGX_TEE_Param(TEEC_Operation *operation, SGX_TEE_Param * p)
+{
+    for(int i=0;i<TEEC_CONFIG_PAYLOAD_REF_COUNT;i++)
+    {
+        uint8_t t = TEEC_PARAM_TYPE_GET(operation->paramTypes, i);
+        switch (t)
+        {
+        case TEEC_NONE:
+            /* code */
+            break;
+        case TEEC_VALUE_OUTPUT:
+        case TEEC_VALUE_INOUT:
+        case TEEC_VALUE_INPUT:
+            operation->params[i].value.a = p[i].value.a;
+            operation->params[i].value.b = p[i].value.b;
+            break;
+        case TEEC_MEMREF_TEMP_OUTPUT:
+        case TEEC_MEMREF_TEMP_INOUT:
+        case TEEC_MEMREF_TEMP_INPUT: 
+            operation->params[i].tmpref.buffer = p[i].memref.buffer;
+            operation->params[i].tmpref.size = p[i].memref.size;
+            break;
+
+        default:
+            printf ("%s: TEE para type %d not supported\n", __FUNCTION__, t);
+            return false;
+        }
+    }
+
+    return true;
+}
 
 TEEC_Result TEEC_OpenSession(TEEC_Context *context,
 			     TEEC_Session *session,
@@ -179,11 +262,23 @@ TEEC_Result TEEC_OpenSession(TEEC_Context *context,
 			     uint32_t *returnOrigin)
 {
 	TEEC_Result ret;
+    SGX_TEE_Param sgx_params[TEEC_CONFIG_PAYLOAD_REF_COUNT] = {0};
+    if(!ToSGX_TEE_Param(operation, sgx_params))
+    {
+        printf("TEEC_OpenSession: unsupported in paramers type\n");
+        return -1;
+    }
+
     if (ecall_gp_open_session(g_eid, &ret, operation->paramTypes,
-	                          operation->params, &session->session_id) != SGX_SUCCESS) {
+	                          sgx_params, &session->session_id) != SGX_SUCCESS) {
 		return -1;
 	}
 
+    if(!FromSGX_TEE_Param(operation, sgx_params))
+    {
+        printf("TEEC_OpenSession: unsupported out paramers type\n");
+        return -1;
+    }
     session->ctx = context;
 
 	return ret;
@@ -203,11 +298,21 @@ TEEC_Result TEEC_InvokeCommand(TEEC_Session *session,
 			       uint32_t *returnOrigin)
 {
 	TEEC_Result ret;
+    SGX_TEE_Param sgx_params[TEEC_CONFIG_PAYLOAD_REF_COUNT] = {0};
+    if(!ToSGX_TEE_Param(operation, sgx_params))
+    {
+        printf("TEEC_InvokeCommand: unsupported in paramers type\n");
+        return -1;
+    }
 
     if(ecall_gp_invoke(g_eid, &ret, session->session_id, commandID,
 					          operation->paramTypes, operation->params) != SGX_SUCCESS) {
 		return -1;
 	}
-
+    if(!FromSGX_TEE_Param(operation, sgx_params))
+    {
+        printf("TEEC_InvokeCommand: unsupported out paramers type\n");
+        return -1;
+    }
 	return ret;
 }
