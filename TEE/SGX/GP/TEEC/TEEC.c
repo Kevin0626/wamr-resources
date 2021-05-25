@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
 #if !defined(SGX_GP_ENCLAVE_HEADER)
 #include "cup_sgx_enclave_u.h"
 #else
@@ -47,6 +48,11 @@ void
 ocall_print_int(uint32_t val)
 {
     printf("%d", val);
+}
+
+uint32_t ocall_get_time()
+{
+    return time(NULL);
 }
 
 static char *
